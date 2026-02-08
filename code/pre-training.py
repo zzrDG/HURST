@@ -17,7 +17,7 @@ import matplotlib.colors as mcolors
 from tqdm import tqdm
 import torch.optim.lr_scheduler as lr_scheduler
 import json
-import random  # 添加的导入
+import random  
 import time
 
 
@@ -31,10 +31,10 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
     os.environ['PYTHONHASHSEED'] = str(seed)
 
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  # 同步执行CUDA操作
-os.environ["TORCH_USE_CUDA_DSA"] = "1"      # 启用设备端断言
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  
+os.environ["TORCH_USE_CUDA_DSA"] = "1"      
 
-# 设置设备
+
 def configure_logging(log_file_path):
 
     log_format = "%(asctime)s - %(levelname)s - %(message)s"
@@ -48,7 +48,7 @@ def configure_logging(log_file_path):
     )
     #logging.info("Logging started.")
 
-# 保存检查点
+
 def save_checkpoint(epoch, model, optimizer, train_loss_arr, valid_loss_arr, checkpoint_save_path):
 
     checkpoint = {
@@ -270,11 +270,11 @@ def train(model, train_dataset,valid_dataset,train_dataloader, valid_dataloader,
         final_output = torch.cat(valid_loss_list, dim=0)  # [total_batch, 7, x, y]
         
         map_loss = torch.mean(final_output, dim=(0, -1), keepdim=False)  # 形状为 [7, x, y]
-        # 生成掩码和权重
+
         mask, weights = generate_temporal_spatial_mask(map_mask, map_loss, mask_rate=r, lambda_value=lambda_value,
                                                     temporal_dim=7, spatial_dim=(H, W), weights=weights,
                                                     top_ratio=0.2)
-        # 更新专家损失
+    
         for expert_id, loss_list in expert_losses.items():
             avg_loss = sum(loss_list) / len(loss_list)
             if expert_id not in persistent_expert_losses:
@@ -283,18 +283,18 @@ def train(model, train_dataset,valid_dataset,train_dataloader, valid_dataloader,
 
 
         if len(valid_mse_loss_arr) >= adjust_window:
-            # 计算最近窗口期内的损失变化率
+            
             recent_losses = valid_mse_loss_arr[-adjust_window:]
-            loss_change = np.abs(np.diff(recent_losses)).mean()  # 计算平均变化量
+            loss_change = np.abs(np.diff(recent_losses)).mean()  
             loss_mean = np.mean(recent_losses)
             
-            # 如果平均变化量小于平均损失的1%，则认为趋于稳定
+            
             if loss_change < loss_mean * 0.01:
-                # 调整lambda参数
-                current_lambda_mse = max(current_lambda_mse * 0.5, 1)  # lambda_mse最低不低于0.1
-                current_lambda_load_balance = min(current_lambda_load_balance * 2.0, 1)  # 最高不超过10.0
+              
+                current_lambda_mse = max(current_lambda_mse * 0.5, 1)  
+                current_lambda_load_balance = min(current_lambda_load_balance * 2.0, 1)  
                 
-                # 更新损失函数的lambda值
+    
                 criterion.lambda_mse = current_lambda_mse
                 criterion.lambda_load_balance = current_lambda_load_balance
                 
@@ -305,7 +305,6 @@ def train(model, train_dataset,valid_dataset,train_dataloader, valid_dataloader,
         if persistent_expert_losses:
             model.moe_layer.update_losses(persistent_expert_losses)
 
-        # 记录日志和保存模型
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         num_experts = len(model.moe_layer.experts)
@@ -339,7 +338,7 @@ def train(model, train_dataset,valid_dataset,train_dataloader, valid_dataloader,
                     f"Best Loss: {best_loss}, "
                     f"Learning Rate: {current_lr}")
 
-        # 更新模型状态
+
 
         model.moe_layer.update_total_loss(avg_valid_mse_loss)
         model.moe_layer.check_and_add_experts(loss_threshold)
@@ -348,20 +347,20 @@ def train(model, train_dataset,valid_dataset,train_dataloader, valid_dataloader,
             best_loss = np.inf
             torch.save(model, model_save_path)
 
-        # 保存 MOE 结构
+ 
         model.moe_layer.print_or_save_structure(save_path=model_structure_path)
 
         plt.close('all')
 
-        # 更新学习率调度器
+
         scheduler.step(avg_valid_loss)
 
-        # 检查早停条件
+
         if early_stopping_enabled and early_stopping_counter >= patience:
             print(f"Early stopping triggered after {epoch + 1} epochs.")
             break
 
-    # 保存训练和验证损失曲线
+
     plt.figure(figsize=(10, 5))
     plt.plot(train_loss_arr, label='Training Loss')
     plt.plot(valid_loss_arr, label='Validation Loss')
@@ -409,13 +408,11 @@ def test(test_dataloader, criterion, device):
     print(f"Number of Leaf Experts: {leaf_count}")
 
 
-# 主函数
+
 def main():
-    # 动态生成文件夹路径
-    seed = 42  # 设置随机种子
+    seed = 42 
     set_seed(seed)
 
-    # 记录所有参数
     config = {
         "current_date": current_date,
         "num_days": num_days,
@@ -439,15 +436,15 @@ def main():
         "valid_size": valid_size,
     }
 
-    # 保存配置到 JSON 文件
+    
     save_config(config, config_file_path)
 
-    # 配置日志
+
     configure_logging(log_file_path)
     logging.info(f"Configuration saved to {config_file_path}")
     #logging.info(f"Current configuration: {json.dumps(config, indent=4)}")
 
-    # 模型初始化
+
 
     model = SpatioTemporalTransformer(
         time_feature_dim=time_feature_dim,
@@ -472,7 +469,7 @@ def main():
     
     optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-08)
 
-    # 训练和测试
+
     train(model, train_dataset,valid_dataset,train_dataloader, valid_dataloader,  optimizer, num_epochs, device,
           lambda_mse,lambda_load_balance ,lambda_contrastive,patience)
     #test(test_dataloader, criterion, device)
@@ -480,33 +477,19 @@ def main():
 if __name__ == '__main__':
     import multiprocessing
     multiprocessing.freeze_support()
-    seed = 42  # 设置随机种子
+    seed = 42 
     set_seed(seed)
-    # 设置设备
+
     device = torch.device("cuda:4")
-    #time_feature = np.load(r'/home/zhouzirui/NYC_data/y/data/time_features.npy')[0:500]
-    #spatial_feaure = np.load(r'/home/zhouzirui/NYC_data/y/data/space_features.npy')
-    #index = [0,1,2,3,4,5]# accident
-    #index = [0,1,2,3,4,6]# crime
-    #index = [0,1,2,3,5,6]# Blocked Driveway
-    #index = [0,1,2,4,5,6]# Illegal Parking
-    #index = [6]
+
     index = [0,1,2,3,4,5,6]
-    pretrain_data = np.load(r"/home/zhouzirui/Data/one-for-all/7F.npy") #spatial_temporal_feature
-    #pretrain_data = np.load(r'/home/zhouzirui/Data/iowa/data.npy')#spatial_temporal_feature
-    #pretrain_data = np.load(r'/home/zhouzirui/Data/iowa/data.npy')[...,index]
-    pretrain_data = np.clip(pretrain_data, 0, None)
-    #time_feature = torch.from_numpy(time_feature).to(torch.float).to(device)
-    #spatial_feaure = torch.from_numpy(spatial_feaure).to(torch.float).to(device)
+    pretrain_data = np.load() 
     pretrain_data = torch.from_numpy(pretrain_data).to(torch.float).to(device)
-    #test_data = torch.from_numpy(test_data).to(device).to(torch.float)
-    #train_data = torch.cat([time_feature,spatial_feaure,pretrain_data],dim=-1)
-    #train_data = pretrain_data
     
      
     H = 64
     W = 64
-    # 模型参数
+
     num_days = 7
     time_feature_dim = 15
     spatial_feature_dim = 18
@@ -533,8 +516,7 @@ if __name__ == '__main__':
     lambda_load_balance = 0.01 
     lambda_contrastive = 0.001
 
-    patience = 80
-    # 数据划分
+    patience = 50
     train_size = int(0.6 * len(pretrain_data))
     valid_size = int(0.2 * len(pretrain_data))
     test_size = int(0.2 * len(pretrain_data))
@@ -553,7 +535,7 @@ if __name__ == '__main__':
 
     param_dir = f"nyc-max_experts={max_experts}_r={r}_embed_dim={embed_dim}_moe_dim={moe_dim}_encoder_dim={encoder_dim}_window_size={window_size}_beta={weight_top_ratio}"
     current_date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_dir = r'/home/zhouzirui/STMOE/pth/pretrain-model/one-for-all-ab_study_loss/'
+    base_dir = r''
     version_dir = os.path.join(base_dir, param_dir, current_date)  # 修改后的路径
     os.makedirs(version_dir, exist_ok=True)
 
@@ -567,4 +549,5 @@ if __name__ == '__main__':
     expert_indices_save_path = os.path.join(version_dir, "expert")
     os.makedirs(expert_indices_save_path, exist_ok=True)
     # 主函数
+
     main()
