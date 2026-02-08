@@ -20,7 +20,7 @@ def configure_logging(log_file):
     logging.basicConfig(
                     level=logging.DEBUG, 
                     format='%(asctime)s - %(levelname)s - %(message)s', 
-                    filename='/home/zhouzirui/STMOE/load_balancing.log', 
+                    filename='', 
                     filemode='w'  
                 )
     logging.info("Logging started.")
@@ -541,3 +541,4 @@ def main():
 if __name__ == '__main__':
 
     main()
+
